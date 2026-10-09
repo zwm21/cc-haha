@@ -133,6 +133,8 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useTabStore } from '../stores/tabStore'
 import { useTeamStore } from '../stores/teamStore'
 import { useActivityPanelStore } from '../stores/activityPanelStore'
+import { useNewSessionPreferencesStore } from '../stores/newSessionPreferencesStore'
+import { DEFAULT_NEW_SESSION_PREFERENCES } from '../lib/newSessionPreferences'
 import { useTrajectoryViewStore } from '../stores/trajectoryViewStore'
 import {
   WORKSPACE_BOTTOM_DEFAULT_HEIGHT,
@@ -185,6 +187,7 @@ afterEach(() => {
   useActivityPanelStore.setState(useActivityPanelStore.getInitialState(), true)
   useCLITaskStore.setState(useCLITaskStore.getInitialState(), true)
   useTrajectoryViewStore.setState({ modes: {}, opened: {}, nav: null })
+  useNewSessionPreferencesStore.setState(useNewSessionPreferencesStore.getInitialState(), true)
 })
 
 describe('ActiveSession trajectory view', () => {
@@ -610,6 +613,92 @@ describe('ActiveSession task polling', () => {
     expect(chips).toHaveLength(4)
     fireEvent.click(chips[1]!)
     expect(useChatStore.getState().sessions[sessionId]?.composerInsertion?.text).toBe(chips[1]!.textContent)
+  })
+
+  it('hides the hero on a blank session when the title block is off, holding the composer slot', () => {
+    const sessionId = 'blank-no-hero'
+    useSessionStore.setState({
+      sessions: [{
+        id: sessionId,
+        title: 'New Session',
+        createdAt: '2026-08-07T00:00:00.000Z',
+        modifiedAt: '2026-08-07T00:00:00.000Z',
+        messageCount: 0,
+        projectPath: '/workspace/project',
+        workDir: '/workspace/project',
+        workDirExists: true,
+      }],
+      activeSessionId: sessionId,
+      isLoading: false,
+      error: null,
+    })
+    useTabStore.setState({
+      tabs: [{ sessionId, title: 'New Session', type: 'session', status: 'idle' }],
+      activeTabId: sessionId,
+    })
+    useChatStore.setState({
+      sessions: {
+        [sessionId]: {
+          ...useChatStore.getState().getSession(sessionId),
+          connectionState: 'connected',
+          historyStatus: 'ready',
+        },
+      },
+    })
+    useNewSessionPreferencesStore.setState({
+      preferences: { ...DEFAULT_NEW_SESSION_PREFERENCES, showHero: false },
+    })
+
+    render(<ActiveSession />)
+
+    expect(screen.queryByTestId('empty-session-hero')).not.toBeInTheDocument()
+    expect(screen.getByTestId('empty-session-hero-placeholder')).toHaveClass('flex-1')
+    expect(screen.getByTestId('chat-input')).toBeInTheDocument()
+  })
+
+  it('shows stand-in title and subtitle words on a blank session', () => {
+    const sessionId = 'blank-custom-hero'
+    useSessionStore.setState({
+      sessions: [{
+        id: sessionId,
+        title: 'New Session',
+        createdAt: '2026-08-07T00:00:00.000Z',
+        modifiedAt: '2026-08-07T00:00:00.000Z',
+        messageCount: 0,
+        projectPath: '/workspace/project',
+        workDir: '/workspace/project',
+        workDirExists: true,
+      }],
+      activeSessionId: sessionId,
+      isLoading: false,
+      error: null,
+    })
+    useTabStore.setState({
+      tabs: [{ sessionId, title: 'New Session', type: 'session', status: 'idle' }],
+      activeTabId: sessionId,
+    })
+    useChatStore.setState({
+      sessions: {
+        [sessionId]: {
+          ...useChatStore.getState().getSession(sessionId),
+          connectionState: 'connected',
+          historyStatus: 'ready',
+        },
+      },
+    })
+    useNewSessionPreferencesStore.setState({
+      preferences: {
+        ...DEFAULT_NEW_SESSION_PREFERENCES,
+        heroTitle: 'Working in {project}',
+        heroSubtitle: 'Careful steps.',
+      },
+    })
+
+    render(<ActiveSession />)
+
+    const hero = screen.getByTestId('empty-session-hero')
+    expect(within(hero).getByRole('heading', { level: 1 })).toHaveTextContent('Working in project')
+    expect(within(hero).getByText('Careful steps.')).toBeInTheDocument()
   })
 
   it('labels result usage that includes cache tokens without implying the Trace input/output total', async () => {

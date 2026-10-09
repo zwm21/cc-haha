@@ -198,6 +198,8 @@ import { useTabStore } from '../stores/tabStore'
 import { useUIStore } from '../stores/uiStore'
 import { usePluginStore } from '../stores/pluginStore'
 import { useWorkflowStore } from '../stores/workflowStore'
+import { useNewSessionPreferencesStore } from '../stores/newSessionPreferencesStore'
+import { DEFAULT_NEW_SESSION_PREFERENCES } from '../lib/newSessionPreferences'
 import type { RepositoryContextResult } from '../api/sessions'
 import { browserHost } from '../lib/desktopHost/browserHost'
 import { getComposerElement, getComposerText, getComposerView, setComposerSelection, setComposerText } from '../components/chat/composerTestUtils'
@@ -275,6 +277,7 @@ describe('EmptySession', () => {
   const initialPluginState = usePluginStore.getInitialState()
   const initialProviderState = useProviderStore.getInitialState()
   const initialWorkflowState = useWorkflowStore.getInitialState()
+  const initialNewSessionPreferencesState = useNewSessionPreferencesStore.getInitialState()
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -300,6 +303,7 @@ describe('EmptySession', () => {
     usePluginStore.setState(initialPluginState, true)
     useProviderStore.setState(initialProviderState, true)
     useWorkflowStore.setState(initialWorkflowState, true)
+    useNewSessionPreferencesStore.setState(initialNewSessionPreferencesState, true)
 
     mocks.createSession.mockResolvedValue({ sessionId: 'draft-session' })
     mocks.getRepositoryContext.mockResolvedValue(okRepositoryContext())
@@ -354,6 +358,7 @@ describe('EmptySession', () => {
     usePluginStore.setState(initialPluginState, true)
     useProviderStore.setState(initialProviderState, true)
     useWorkflowStore.setState(initialWorkflowState, true)
+    useNewSessionPreferencesStore.setState(initialNewSessionPreferencesState, true)
   })
 
   it('drops a starter into the draft and keeps what was already typed', async () => {
@@ -375,6 +380,35 @@ describe('EmptySession', () => {
 
     expect(screen.queryByTestId('new-session-starter')).not.toBeInTheDocument()
     expect(screen.getByTestId('empty-session-composer-shell')).toHaveClass('absolute', 'bottom-0')
+  })
+
+  it('hides the hero but holds the composer in its slot when the title block is off', () => {
+    useNewSessionPreferencesStore.setState({
+      preferences: { ...DEFAULT_NEW_SESSION_PREFERENCES, showHero: false },
+    })
+
+    render(<EmptySession />)
+
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
+    // The hero's flex share is held empty, so the composer keeps its place
+    // between it and the starter row.
+    expect(screen.getByTestId('empty-session-hero-placeholder')).toHaveClass('flex-1')
+    expect(screen.getByTestId('empty-session-composer-shell')).toBeInTheDocument()
+  })
+
+  it('shows stand-in title and subtitle words on the hero', () => {
+    useNewSessionPreferencesStore.setState({
+      preferences: {
+        ...DEFAULT_NEW_SESSION_PREFERENCES,
+        heroTitle: 'Building {project}',
+        heroSubtitle: 'One thing at a time.',
+      },
+    })
+
+    render(<EmptySession initialWorkDir="/workspace/project" />)
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Building project')
+    expect(screen.getByText('One thing at a time.')).toBeInTheDocument()
   })
 
   it('puts the project above the hero on a phone, where the keyboard cannot cover it', async () => {

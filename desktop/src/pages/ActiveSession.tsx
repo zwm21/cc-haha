@@ -59,6 +59,8 @@ import type { ActiveGoalState, TokenUsage } from '../types/chat'
 import type { TeamMember } from '../types/team'
 import { useWorkspaceAdaptiveLayout } from '@/hooks/useWorkspaceAdaptiveLayout'
 import { useMobileViewport } from '../hooks/useMobileViewport'
+import { useNewSessionPreferencesStore } from '../stores/newSessionPreferencesStore'
+import { resolveNewSessionHeroSubtitle, resolveNewSessionHeroTitle } from '@/lib/newSessionPreferences'
 import { useWorkspaceShortcuts } from '../hooks/useWorkspaceShortcuts'
 import { useWorkspaceFocusReturn } from '../hooks/useWorkspaceFocusReturn'
 import { isDesktopRuntime } from '../lib/desktopRuntime'
@@ -560,6 +562,7 @@ export function ActiveSession({ sessionId, active = true }: { sessionId?: string
   const emptyHeroProject = isEmpty && session && (session.projectRoot || session.workDir)
     ? getSessionWorkspaceLabel(session, resolveProjectDisplayName) || null
     : null
+  const newSessionPreferences = useNewSessionPreferencesStore((state) => state.preferences)
   const isHistoryLoading =
     (session?.messageCount ?? 0) > 0 &&
     messages.length === 0 &&
@@ -921,27 +924,31 @@ export function ActiveSession({ sessionId, active = true }: { sessionId?: string
             // bottom-aligns and the starter top-aligns, so the composer between
             // them lands just above the middle of the column — without moving
             // it out of its slot, where a remount would drop the draft.
-            <div
-              data-testid="empty-session-hero"
-              className={[
-                'flex min-h-0 flex-1 flex-col items-center justify-end overflow-hidden px-8',
-                compactEmptyHero ? 'pb-6 pt-6' : 'pb-7 pt-8',
-              ].join(' ')}
-            >
-              <div className="flex max-w-[600px] flex-col items-center gap-2.5 text-center">
-                <BrandSeal size={compactEmptyHero ? 'md' : 'lg'} />
-                <h1
-                  className={`mt-2 font-semibold leading-[1.3] tracking-tight text-[var(--color-text-primary)] ${compactEmptyHero ? 'text-[22px]' : 'text-[26px]'}`}
-                >
-                  {emptyHeroProject
-                    ? t('empty.heroTitle', { project: emptyHeroProject })
-                    : t('empty.heroTitleNoProject')}
-                </h1>
-                <p className="text-[14px] text-[var(--color-text-tertiary)]">
-                  {t('empty.heroSubtitle')}
-                </p>
+            newSessionPreferences.showHero ? (
+              <div
+                data-testid="empty-session-hero"
+                className={[
+                  'flex min-h-0 flex-1 flex-col items-center justify-end overflow-hidden px-8',
+                  compactEmptyHero ? 'pb-6 pt-6' : 'pb-7 pt-8',
+                ].join(' ')}
+              >
+                <div className="flex max-w-[600px] flex-col items-center gap-2.5 text-center">
+                  <BrandSeal size={compactEmptyHero ? 'md' : 'lg'} />
+                  <h1
+                    className={`mt-2 font-semibold leading-[1.3] tracking-tight text-[var(--color-text-primary)] ${compactEmptyHero ? 'text-[22px]' : 'text-[26px]'}`}
+                  >
+                    {resolveNewSessionHeroTitle(newSessionPreferences, emptyHeroProject, t)}
+                  </h1>
+                  <p className="text-[14px] text-[var(--color-text-tertiary)]">
+                    {resolveNewSessionHeroSubtitle(newSessionPreferences, t)}
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              // The hero's flex share, held empty: hiding it must not move the
+              // composer out of its slot above the starter row.
+              <div data-testid="empty-session-hero-placeholder" aria-hidden="true" className="min-h-0 flex-1" />
+            )
           ) : (
             <>
               {!isMobileLayout && (

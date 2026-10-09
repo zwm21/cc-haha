@@ -1,4 +1,5 @@
 import { isComposerReferenceVisible, isComposerSlashCommandVisible } from '@/lib/composerCapabilityVisibility'
+import { resolveNewSessionHeroSubtitle, resolveNewSessionHeroTitle } from '@/lib/newSessionPreferences'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useDismissable } from '@/hooks/useDismissable'
 import { ArrowUp, Cpu, Plus, ShieldCheck } from 'lucide-react'
@@ -18,6 +19,7 @@ import { useChatStore } from '../stores/chatStore'
 import { usePluginStore } from '../stores/pluginStore'
 import { useProviderStore } from '../stores/providerStore'
 import { useSessionRuntimeStore, DRAFT_RUNTIME_SELECTION_KEY } from '../stores/sessionRuntimeStore'
+import { useNewSessionPreferencesStore } from '../stores/newSessionPreferencesStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { SETTINGS_TAB_ID, useTabStore } from '../stores/tabStore'
@@ -190,6 +192,7 @@ export function EmptySession({ initialWorkDir = '' }: EmptySessionProps = {}) {
   const [draftPermissionMode, setDraftPermissionMode] = useState<PermissionMode>(defaultPermissionMode)
   const lastPluginReloadSummary = usePluginStore((state) => state.lastReloadSummary)
   const draftRuntimeSelection = useSessionRuntimeStore((state) => state.selections[DRAFT_RUNTIME_SELECTION_KEY])
+  const newSessionPreferences = useNewSessionPreferencesStore((state) => state.preferences)
   const referenceProviderId = mentionProviderId(draftRuntimeSelection)
   const referenceContext = `${workDir}\0${referenceProviderId ?? ''}`
   const referenceCurrent = referenceState?.context === referenceContext ? referenceState : null
@@ -826,27 +829,31 @@ export function EmptySession({ initialWorkDir = '' }: EmptySessionProps = {}) {
             />
         </div>
       )}
-      <div className={`flex flex-col items-center text-center ${
-        isMobileComposer
-          ? 'min-h-0 flex-1 justify-center overflow-hidden px-6 pb-[230px] pt-6'
-          : 'min-h-0 flex-1 justify-end overflow-hidden px-8 pb-7 pt-8'
-      }`}>
-        <div className={`flex flex-col items-center gap-2.5 ${isMobileComposer ? 'max-w-[300px]' : 'max-w-[600px]'}`}>
-          <BrandSeal size={isMobileComposer ? 'md' : 'lg'} />
-          <h1
-            className={`mt-2 font-semibold leading-[1.3] tracking-tight text-[var(--color-text-primary)] ${
-              isMobileComposer ? 'text-[22px]' : 'text-[26px]'
-            }`}
-          >
-            {heroProject
-              ? t('empty.heroTitle', { project: heroProject })
-              : t('empty.heroTitleNoProject')}
-          </h1>
-          <p className="text-[14px] leading-6 text-[var(--color-text-tertiary)]">
-            {t('empty.heroSubtitle')}
-          </p>
+      {newSessionPreferences.showHero ? (
+        <div className={`flex flex-col items-center text-center ${
+          isMobileComposer
+            ? 'min-h-0 flex-1 justify-center overflow-hidden px-6 pb-[230px] pt-6'
+            : 'min-h-0 flex-1 justify-end overflow-hidden px-8 pb-7 pt-8'
+        }`}>
+          <div className={`flex flex-col items-center gap-2.5 ${isMobileComposer ? 'max-w-[300px]' : 'max-w-[600px]'}`}>
+            <BrandSeal size={isMobileComposer ? 'md' : 'lg'} />
+            <h1
+              className={`mt-2 font-semibold leading-[1.3] tracking-tight text-[var(--color-text-primary)] ${
+                isMobileComposer ? 'text-[22px]' : 'text-[26px]'
+              }`}
+            >
+              {resolveNewSessionHeroTitle(newSessionPreferences, heroProject, t)}
+            </h1>
+            <p className="text-[14px] leading-6 text-[var(--color-text-tertiary)]">
+              {resolveNewSessionHeroSubtitle(newSessionPreferences, t)}
+            </p>
+          </div>
         </div>
-      </div>
+      ) : (
+        // The hero's flex share, held empty: hiding it must not move the
+        // composer out of its slot between the hero and the starter row.
+        <div data-testid="empty-session-hero-placeholder" aria-hidden="true" className="min-h-0 flex-1" />
+      )}
 
       <div
         data-testid="empty-session-composer-shell"

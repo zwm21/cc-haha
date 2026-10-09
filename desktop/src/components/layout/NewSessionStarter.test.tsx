@@ -5,6 +5,8 @@ import { NewSessionStarter, pickRecentSessions } from './NewSessionStarter'
 import { useChatStore } from '../../stores/chatStore'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { useNewSessionPreferencesStore } from '../../stores/newSessionPreferencesStore'
+import { DEFAULT_NEW_SESSION_PREFERENCES, type NewSessionPreferences } from '../../lib/newSessionPreferences'
 import type { SessionListItem } from '../../types/session'
 
 const NOW = Date.now()
@@ -71,8 +73,15 @@ describe('NewSessionStarter', () => {
   const openHistoricalSession = vi.fn()
   const connectToSession = vi.fn()
 
+  const setPreferences = (patch: Partial<NewSessionPreferences>) => {
+    useNewSessionPreferencesStore.setState({
+      preferences: { ...DEFAULT_NEW_SESSION_PREFERENCES, ...patch },
+    })
+  }
+
   beforeEach(() => {
     useSettingsStore.setState({ locale: 'en' })
+    setPreferences({})
     useSessionStore.setState({
       sessions: [session('Fix login', { minutesAgo: 3 }), session('Write docs', { minutesAgo: 90 })],
       openHistoricalSession,
@@ -118,5 +127,61 @@ describe('NewSessionStarter', () => {
 
     expect(screen.queryByRole('region')).not.toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Suggestions' })).toBeInTheDocument()
+  })
+
+  it('hides the suggestion row when it is turned off, keeping the recent list', () => {
+    setPreferences({ showSuggestions: false })
+    render(<NewSessionStarter projectPath="/workspace/alpha" onSuggestion={vi.fn()} />)
+
+    expect(screen.queryByRole('group', { name: 'Suggestions' })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Recent sessions' })).toBeInTheDocument()
+  })
+
+  it('hides the recent list when it is turned off, keeping the suggestion row', () => {
+    setPreferences({ showRecentSessions: false })
+    render(<NewSessionStarter projectPath="/workspace/alpha" onSuggestion={vi.fn()} />)
+
+    expect(screen.queryByRole('region')).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Suggestions' })).toBeInTheDocument()
+  })
+
+  it('renders nothing at all when both blocks are turned off', () => {
+    setPreferences({ showSuggestions: false, showRecentSessions: false })
+    render(<NewSessionStarter projectPath="/workspace/alpha" onSuggestion={vi.fn()} />)
+
+    expect(screen.queryByTestId('new-session-starter')).not.toBeInTheDocument()
+  })
+
+  it('puts stand-in words on the chips, falling back per chip', () => {
+    setPreferences({ suggestionTexts: ['Ship the docs', '', '  ', 'Hunt the flake'] })
+    const onSuggestion = vi.fn()
+    render(<NewSessionStarter projectPath="/workspace/alpha" onSuggestion={onSuggestion} />)
+
+    const chips = within(screen.getByRole('group', { name: 'Suggestions' })).getAllByRole('button')
+    expect(chips.map((chip) => chip.textContent)).toEqual([
+      'Ship the docs',
+      'Fix the failing tests',
+      'Review my uncommitted changes',
+      'Hunt the flake',
+    ])
+
+    fireEvent.click(chips[0]!)
+    expect(onSuggestion).toHaveBeenCalledWith('Ship the docs')
+  })
+
+  it('lists as many recent threads as the limit says', () => {
+    useSessionStore.setState({
+      sessions: [
+        session('a', { minutesAgo: 1 }),
+        session('b', { minutesAgo: 2 }),
+        session('c', { minutesAgo: 3 }),
+        session('d', { minutesAgo: 4 }),
+      ],
+    } as Partial<ReturnType<typeof useSessionStore.getState>>)
+    setPreferences({ recentLimit: 2 })
+    render(<NewSessionStarter projectPath="/workspace/alpha" onSuggestion={vi.fn()} />)
+
+    const recent = screen.getByRole('region', { name: 'Recent sessions' })
+    expect(within(recent).getAllByRole('listitem').map((item) => item.textContent)).toHaveLength(2)
   })
 })

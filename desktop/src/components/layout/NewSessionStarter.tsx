@@ -4,18 +4,18 @@ import { Button } from '@/components/ui/Button'
 import { useTranslation, type TranslationKey } from '../../i18n'
 import { useChatStore } from '../../stores/chatStore'
 import { useSessionStore } from '../../stores/sessionStore'
+import { useNewSessionPreferencesStore } from '../../stores/newSessionPreferencesStore'
+import { resolveSuggestionText, SUGGESTION_DEFAULT_KEYS } from '../../lib/newSessionPreferences'
 import type { SessionListItem } from '../../types/session'
 import { getSessionProjectKey, isSameOrChildPath } from './sidebarTaskGroups'
 
-const RECENT_LIMIT = 3
+/** One icon per starter chip, in the same order as `SUGGESTION_DEFAULT_KEYS`. */
+const SUGGESTION_ICONS: readonly LucideIcon[] = [SearchCode, CircleX, Eye, Hammer]
 
-/** Explicit keys, so a literal-only i18n scan sees every one of them. */
-const SUGGESTIONS: ReadonlyArray<{ id: string; icon: LucideIcon; key: TranslationKey }> = [
-  { id: 'explain-repo', icon: SearchCode, key: 'empty.suggestion.explainRepo' },
-  { id: 'fix-tests', icon: CircleX, key: 'empty.suggestion.fixTests' },
-  { id: 'review-changes', icon: Eye, key: 'empty.suggestion.reviewChanges' },
-  { id: 'new-feature', icon: Hammer, key: 'empty.suggestion.newFeature' },
-]
+const SUGGESTIONS: ReadonlyArray<{ id: TranslationKey; icon: LucideIcon; key: TranslationKey }> =
+  SUGGESTION_DEFAULT_KEYS.map((key, index) => ({ id: key, icon: SUGGESTION_ICONS[index]!, key }))
+
+const RECENT_LIMIT = 3
 
 type Translate = ReturnType<typeof useTranslation>
 
@@ -37,6 +37,10 @@ export type NewSessionStarterProps = {
  * What sits under the composer on a blank session (「素」, su-12): a row of
  * starter prompts and the last few sessions in the same project, so picking
  * up yesterday's thread is one click from the place a new one starts.
+ *
+ * Which of the two blocks shows, how many recent threads, and the words on
+ * the chips are the user's (Settings → General → New session screen); the
+ * defaults are this component as it shipped.
  */
 export function NewSessionStarter({
   projectPath,
@@ -46,11 +50,12 @@ export function NewSessionStarter({
 }: NewSessionStarterProps) {
   const t = useTranslation()
   const sessions = useSessionStore((s) => s.sessions)
+  const preferences = useNewSessionPreferencesStore((s) => s.preferences)
   const recentTitleId = useId()
 
   const recent = useMemo(
-    () => pickRecentSessions(sessions, projectPath ?? null, excludeSessionId ?? null),
-    [excludeSessionId, projectPath, sessions],
+    () => pickRecentSessions(sessions, projectPath ?? null, excludeSessionId ?? null, preferences.recentLimit),
+    [excludeSessionId, preferences.recentLimit, projectPath, sessions],
   )
 
   const openSession = (session: SessionListItem) => {
@@ -58,27 +63,31 @@ export function NewSessionStarter({
     useChatStore.getState().connectToSession(session.id)
   }
 
+  if (!preferences.showSuggestions && !preferences.showRecentSessions) return null
+
   return (
     <div data-testid="new-session-starter" className="flex w-full flex-col items-center">
-      <div
-        role="group"
-        aria-label={t('empty.suggestions')}
-        className="flex flex-wrap justify-center gap-2"
-      >
-        {SUGGESTIONS.map(({ id, icon: Icon, key }) => (
-          <Button
-            key={id}
-            variant="secondary"
-            size="base"
-            icon={<Icon size={14} strokeWidth={1.75} className="text-[var(--color-text-tertiary)]" aria-hidden="true" />}
-            onClick={() => onSuggestion(t(key))}
-          >
-            {t(key)}
-          </Button>
-        ))}
-      </div>
+      {preferences.showSuggestions && (
+        <div
+          role="group"
+          aria-label={t('empty.suggestions')}
+          className="flex flex-wrap justify-center gap-2"
+        >
+          {SUGGESTIONS.map(({ id, icon: Icon, key }, index) => (
+            <Button
+              key={id}
+              variant="secondary"
+              size="base"
+              icon={<Icon size={14} strokeWidth={1.75} className="text-[var(--color-text-tertiary)]" aria-hidden="true" />}
+              onClick={() => onSuggestion(resolveSuggestionText(preferences, index, t(key)))}
+            >
+              {resolveSuggestionText(preferences, index, t(key))}
+            </Button>
+          ))}
+        </div>
+      )}
 
-      {recent.length > 0 && (
+      {preferences.showRecentSessions && recent.length > 0 && (
         <section
           aria-labelledby={recentTitleId}
           className="mt-12 w-full max-w-[720px]"
