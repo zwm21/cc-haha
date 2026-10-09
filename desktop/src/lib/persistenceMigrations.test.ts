@@ -6,6 +6,7 @@ import {
 } from './persistenceMigrations'
 import { WORKSPACE_STORAGE_VERSION } from './workspace/storageKey'
 import { CHAT_APPEARANCE_STORAGE_KEY, DEFAULT_CHAT_APPEARANCE } from './chatAppearance'
+import { DEFAULT_NEW_SESSION_PREFERENCES, NEW_SESSION_PREFERENCES_STORAGE_KEY } from './newSessionPreferences'
 
 describe('desktop persistence migrations', () => {
   beforeEach(() => {
@@ -33,6 +34,25 @@ describe('desktop persistence migrations', () => {
     localStorage.setItem(CHAT_APPEARANCE_STORAGE_KEY, future)
     runDesktopPersistenceMigrations()
     expect(localStorage.getItem(CHAT_APPEARANCE_STORAGE_KEY)).toBe(future)
+  })
+
+  test('materializes new-session screen defaults on a pre-feature install and preserves a future schema', () => {
+    runDesktopPersistenceMigrations()
+    expect(JSON.parse(localStorage.getItem(NEW_SESSION_PREFERENCES_STORAGE_KEY)!)).toEqual({
+      version: 1, ...DEFAULT_NEW_SESSION_PREFERENCES,
+    })
+    expect(runDesktopPersistenceMigrations().migratedKeys).not.toContain(NEW_SESSION_PREFERENCES_STORAGE_KEY)
+
+    localStorage.setItem(NEW_SESSION_PREFERENCES_STORAGE_KEY, JSON.stringify({ showHero: false, recentLimit: 99, extra: true }))
+    runDesktopPersistenceMigrations()
+    expect(JSON.parse(localStorage.getItem(NEW_SESSION_PREFERENCES_STORAGE_KEY)!)).toEqual({
+      version: 1, ...DEFAULT_NEW_SESSION_PREFERENCES, showHero: false, recentLimit: 10, extra: true,
+    })
+
+    const future = '{"version":2,"showHero":"future","extra":true}'
+    localStorage.setItem(NEW_SESSION_PREFERENCES_STORAGE_KEY, future)
+    runDesktopPersistenceMigrations()
+    expect(localStorage.getItem(NEW_SESSION_PREFERENCES_STORAGE_KEY)).toBe(future)
   })
 
   test('migrates legacy open-tab arrays into the current tab persistence shape', () => {

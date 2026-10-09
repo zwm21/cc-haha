@@ -11,6 +11,7 @@ import {
 } from './appZoom'
 
 import { CHAT_APPEARANCE_STORAGE_KEY, migrateChatAppearance } from './chatAppearance'
+import { NEW_SESSION_PREFERENCES_STORAGE_KEY, migrateNewSessionPreferences } from './newSessionPreferences'
 
 export const CURRENT_DESKTOP_PERSISTENCE_SCHEMA_VERSION = 6
 export const DESKTOP_PERSISTENCE_VERSION_KEY = 'cc-haha.persistence.schemaVersion'
@@ -370,6 +371,9 @@ export function runDesktopPersistenceMigrations(storage: StorageLike | null = ge
   runMigrationStep(report, WORKSPACE_STORAGE_KEY, () => migrateWorkspaceState(storage, report))
   runMigrationStep(report, CHAT_APPEARANCE_STORAGE_KEY, () => {
     if (migrateChatAppearance(storage)) report.migratedKeys.push(CHAT_APPEARANCE_STORAGE_KEY)
+  })
+  runMigrationStep(report, NEW_SESSION_PREFERENCES_STORAGE_KEY, () => {
+    if (migrateNewSessionPreferences(storage)) report.migratedKeys.push(NEW_SESSION_PREFERENCES_STORAGE_KEY)
   })
   try {
     storage.setItem(DESKTOP_PERSISTENCE_VERSION_KEY, String(CURRENT_DESKTOP_PERSISTENCE_SCHEMA_VERSION))
