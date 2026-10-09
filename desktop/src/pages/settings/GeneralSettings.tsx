@@ -44,6 +44,7 @@ import { isTouchH5Document } from '../../lib/touchH5'
 import { MODEL_REASONING_EFFORTS } from '../../../../src/shared/modelReasoning'
 import { AUTO_QUESTION_TIMEOUT_OPTIONS } from '../../../../src/shared/autoQuestionSettings'
 import { ChatAppearanceSettings } from './ChatAppearanceSettings'
+import { NewSessionPreferencesSettings } from './NewSessionPreferencesSettings'
 import { DataMigrationSettings } from './DataMigrationSettings'
 
 /**
@@ -925,6 +926,8 @@ export function GeneralSettings() {
       </SettingsSection>
 
       <ChatAppearanceSettings />
+
+      <NewSessionPreferencesSettings />
 
       {uiZoomSection}
 
